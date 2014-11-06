@@ -44,7 +44,7 @@
 		<link>
 			<name>Classes</name>
 			<type>2</type>
-			<locationURI>COCOS2DX/projects/Pongu/Classes</locationURI>
+			<location>S:/git/Pongu/Pongu/Classes</location>
 		</link>
 		<link>
 			<name>cocos2dx</name>
