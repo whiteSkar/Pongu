@@ -1,7 +1,5 @@
 #include "HelloWorldScene.h"
 
-USING_NS_CC;
-
 Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
@@ -22,13 +20,19 @@ bool HelloWorld::init()
 {
     //////////////////////////////
     // 1. super init first
-    if ( !Layer::init() )
+    if (!Layer::init())
     {
         return false;
     }
+
+    srand(time(NULL));
     
-    Size visibleSize = Director::getInstance()->getVisibleSize();
-    Point origin = Director::getInstance()->getVisibleOrigin();
+    directorVisibleSize = Director::getInstance()->getVisibleSize();
+    directorOrigin = Director::getInstance()->getVisibleOrigin();
+
+    gameState = NOT_STARTED;
+    touchDirection = NOT_TOUCHED;
+    ballDirection = UnitVector(0, 0);
 
     /////////////////////////////
     // 2. add a menu item with "X" image, which is clicked to quit the program
@@ -38,10 +42,9 @@ bool HelloWorld::init()
     auto closeItem = MenuItemImage::create(
                                            "CloseNormal.png",
                                            "CloseSelected.png",
-                                           CC_CALLBACK_1(HelloWorld::menuCloseCallback, this));
+                                           CC_CALLBACK_1(HelloWorld::restart, this));
     
-	closeItem->setPosition(Point(origin.x + visibleSize.width - closeItem->getContentSize().width/2 ,
-                                origin.y + closeItem->getContentSize().height/2));
+	closeItem->setPosition(Point(directorVisibleSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
 
     // create menu, it's an autorelease object
     auto menu = Menu::create(closeItem, NULL);
@@ -54,38 +57,149 @@ bool HelloWorld::init()
     // add a label shows "Hello World"
     // create and initialize a label
     
-    auto label = LabelTTF::create("Hello World", "Arial", 24);
+    auto label = LabelTTF::create("Pongu", "Arial", 24);
     
     // position the label on the center of the screen
-    label->setPosition(Point(origin.x + visibleSize.width/2,
-                            origin.y + visibleSize.height - label->getContentSize().height));
+    label->setPosition(Point(directorVisibleSize.width/2, directorVisibleSize.height - label->getContentSize().height));
 
-    // add the label as a child to this layer
     this->addChild(label, 1);
 
-    // add "HelloWorld" splash screen"
-    auto sprite = Sprite::create("HelloWorld.png");
+    // Remove scale when got proper sized sprites
+    const float barScale = 0.3;
+    const float ballScale = 0.08;
 
-    // position the sprite on the center of the screen
-    sprite->setPosition(Point(visibleSize.width/2 + origin.x, visibleSize.height/2 + origin.y));
+    myBar = Sprite::create("whiteBar.png");
+	myBar->setScale(barScale);
+    this->initializeMyBarPosition();
+    this->addChild(myBar, 0);
 
-    // add the sprite as a child to this layer
-    this->addChild(sprite, 0);
-    
+    computerBar = Sprite::create("whiteBar.png");
+	computerBar->setScale(barScale);
+    this->initializeComputerBarPosition();
+    this->addChild(computerBar, 0);
+
+    ball = Sprite::create("blueBall.png");
+    ball->setScale(ballScale);
+    this->initializeBallPosition();
+    this->addChild(ball, 0);
+
+    auto touchListener = EventListenerTouchOneByOne::create();
+    touchListener->setSwallowTouches(true);
+
+    touchListener->onTouchBegan = CC_CALLBACK_2(HelloWorld::onTouchBegan, this);
+    touchListener->onTouchMoved = CC_CALLBACK_2(HelloWorld::onTouchMoved, this);
+    touchListener->onTouchEnded = CC_CALLBACK_2(HelloWorld::onTouchEnded, this);
+
+    _eventDispatcher->addEventListenerWithSceneGraphPriority(touchListener, this);
+
+    this->scheduleUpdate();
+
     return true;
 }
 
-
-void HelloWorld::menuCloseCallback(Ref* pSender)
+bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 {
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_WP8) || (CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
-	MessageBox("You pressed the close button. Windows Store Apps do not implement a close button.","Alert");
-    return;
-#endif
+    if (gameState == NOT_STARTED)
+        this->determineBallDirection();
 
-    Director::getInstance()->end();
+    gameState = STARTED;
 
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
-    exit(0);
-#endif
+    this->determineTouchDirection(touch);
+
+    return true;
 }
+
+void HelloWorld::onTouchMoved(cocos2d::Touch *touch, cocos2d::Event *event)
+{
+    this->determineTouchDirection(touch);
+}
+
+void HelloWorld::determineTouchDirection(Touch *touch)
+{
+    if (touch->getLocation().x <= directorVisibleSize.width / 2)
+        touchDirection = LEFT;
+    else
+        touchDirection = RIGHT;
+}
+
+void HelloWorld::onTouchEnded(cocos2d::Touch *touch, cocos2d::Event *event)
+{
+    touchDirection = NOT_TOUCHED;
+}
+
+void HelloWorld::update(float dt)
+{
+    if (gameState == STARTED)
+    {
+        this->moveMyBar(dt);
+        this->moveBall(dt);
+    }
+}
+
+void HelloWorld::moveMyBar(float dt)
+{
+    if (touchDirection == NOT_TOUCHED) return;
+
+    float myBarSpeed = DEFAULT_MY_BAR_SPEED * touchDirection * dt;
+
+    myBar->setPositionX(myBar->getPositionX() + myBarSpeed);
+
+    float myBarWidthHalf = myBar->getBoundingBox().size.width / 2;
+    if (myBar->getPositionX() + myBarWidthHalf > directorVisibleSize.width)
+        myBar->setPositionX(directorVisibleSize.width - myBarWidthHalf);
+    else if(myBar->getPositionX() - myBarWidthHalf < 0)
+        myBar->setPositionX(myBarWidthHalf);
+}
+
+void HelloWorld::moveBall(float dt)
+{
+    float ballSpeed = DEFAULT_BALL_SPEED * dt;
+
+    float horizontalSpeed = ballSpeed * ballDirection.first;
+    float verticalSpeed = ballSpeed * ballDirection.second;
+
+    auto ballPosition = ball->getPosition();
+    ball->setPosition(Point(ballPosition.x + horizontalSpeed, ballPosition.y + verticalSpeed));
+}
+
+void HelloWorld::determineBallDirection()
+{
+    auto ballPositionVectorFromMyBar = ball->getPosition() - myBar->getPosition();
+    auto angle = ballPositionVectorFromMyBar.getAngle();
+
+    ballDirection = UnitVector(cos(angle), sin(angle));
+}
+
+void HelloWorld::initialize()
+{
+    gameState = NOT_STARTED;
+    touchDirection = NOT_TOUCHED;
+    ballDirection = UnitVector(0, 0);
+}
+
+void HelloWorld::restart(Ref* pSender)
+{
+    this->initialize();
+    this->initializeMyBarPosition();
+    this->initializeComputerBarPosition();
+    this->initializeBallPosition();
+}
+
+void HelloWorld::initializeMyBarPosition()
+{
+    myBar->setPosition(Point(directorVisibleSize.width / 2, BAR_VERTICAL_OFFSET));
+}
+
+void HelloWorld::initializeComputerBarPosition()
+{
+    computerBar->setPosition(Point(directorVisibleSize.width / 2, directorVisibleSize.height - BAR_VERTICAL_OFFSET));
+}
+
+void HelloWorld::initializeBallPosition()
+{
+    auto myBarSize = myBar->getBoundingBox().size;
+    auto ballHeight = ball->getBoundingBox().size.height;
+    auto ballRandomXPos = rand() % (int)myBarSize.width + myBar->getPositionX() - myBarSize.width/2;
+    ball->setPosition(Point(ballRandomXPos, myBar->getPositionY() + myBarSize.height/2 + ballHeight/2));
+}
+
