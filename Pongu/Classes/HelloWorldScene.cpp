@@ -3,10 +3,13 @@
 Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
-    auto scene = Scene::create();
-    
+    auto scene = Scene::createWithPhysics();
+    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    scene->getPhysicsWorld()->setGravity(Vect(0,0));
+
     // 'layer' is an autorelease object
     auto layer = HelloWorld::create();
+    layer->setPhysicsWorld(scene->getPhysicsWorld());
 
     // add layer as a child to scene
     scene->addChild(layer);
@@ -29,6 +32,13 @@ bool HelloWorld::init()
     
     directorVisibleSize = Director::getInstance()->getVisibleSize();
     directorOrigin = Director::getInstance()->getVisibleOrigin();
+
+    const int screenEdgeWidth = 5;
+    auto screenEdgeBody = PhysicsBody::createEdgeBox(directorVisibleSize, PhysicsMaterial(1, 1, 0), screenEdgeWidth);
+    auto screenEdgeNode = Node::create();
+    screenEdgeNode->setPosition(Point(directorVisibleSize.width/2 + directorOrigin.x, directorVisibleSize.height/2 + directorOrigin.y));
+    screenEdgeNode->setPhysicsBody(screenEdgeBody);
+    this->addChild(screenEdgeNode);
 
     gameState = NOT_STARTED;
     touchDirection = NOT_TOUCHED;
@@ -68,19 +78,36 @@ bool HelloWorld::init()
     const float barScale = 0.3;
     const float ballScale = 0.08;
 
+    // My bar
     myBar = Sprite::create("whiteBar.png");
 	myBar->setScale(barScale);
     this->initializeMyBarPosition();
+
+    auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
+    myBarBody->setDynamic(false);
+    myBar->setPhysicsBody(myBarBody);
+
     this->addChild(myBar, 0);
 
+    // Computer bar
     computerBar = Sprite::create("whiteBar.png");
 	computerBar->setScale(barScale);
     this->initializeComputerBarPosition();
+
+    auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
+    computerBarBody->setDynamic(false);
+    computerBar->setPhysicsBody(computerBarBody);
+
     this->addChild(computerBar, 0);
 
+    // The ball
     ball = Sprite::create("blueBall.png");
     ball->setScale(ballScale);
     this->initializeBallPosition();
+
+    auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PhysicsMaterial(1, 1, 0), Point(0,0));
+    ball->setPhysicsBody(ballBody);
+
     this->addChild(ball, 0);
 
     auto touchListener = EventListenerTouchOneByOne::create();
@@ -97,10 +124,15 @@ bool HelloWorld::init()
     return true;
 }
 
+// TODO: The direction of the ball should depend on the colliding point with the bar. cocos2dx physics tutorial has a tutorial about collision detection method overriding.
+
 bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 {
     if (gameState == NOT_STARTED)
+    {
         this->determineBallDirection();
+        this->ball->getPhysicsBody()->setVelocity(Vect(DEFAULT_BALL_SPEED * ballDirection.first, DEFAULT_BALL_SPEED * ballDirection.second));
+    }
 
     gameState = STARTED;
 
@@ -132,7 +164,6 @@ void HelloWorld::update(float dt)
     if (gameState == STARTED)
     {
         this->moveMyBar(dt);
-        this->moveBall(dt);
     }
 }
 
@@ -149,17 +180,6 @@ void HelloWorld::moveMyBar(float dt)
         myBar->setPositionX(directorVisibleSize.width - myBarWidthHalf);
     else if(myBar->getPositionX() - myBarWidthHalf < 0)
         myBar->setPositionX(myBarWidthHalf);
-}
-
-void HelloWorld::moveBall(float dt)
-{
-    float ballSpeed = DEFAULT_BALL_SPEED * dt;
-
-    float horizontalSpeed = ballSpeed * ballDirection.first;
-    float verticalSpeed = ballSpeed * ballDirection.second;
-
-    auto ballPosition = ball->getPosition();
-    ball->setPosition(Point(ballPosition.x + horizontalSpeed, ballPosition.y + verticalSpeed));
 }
 
 void HelloWorld::determineBallDirection()
@@ -183,6 +203,7 @@ void HelloWorld::restart(Ref* pSender)
     this->initializeMyBarPosition();
     this->initializeComputerBarPosition();
     this->initializeBallPosition();
+    this->ball->getPhysicsBody()->setVelocity(Vect(0, 0));
 }
 
 void HelloWorld::initializeMyBarPosition()
@@ -203,3 +224,7 @@ void HelloWorld::initializeBallPosition()
     ball->setPosition(Point(ballRandomXPos, myBar->getPositionY() + myBarSize.height/2 + ballHeight/2));
 }
 
+void HelloWorld::setPhysicsWorld(cocos2d::PhysicsWorld *world)
+{
+   this->sceneWorld = world;
+}

@@ -53,7 +53,6 @@ public:
 
     void HelloWorld::update(float dt);
     void HelloWorld::moveMyBar(float dt);
-    void HelloWorld::moveBall(float dt);
 
     void HelloWorld::determineBallDirection();
 
@@ -72,6 +71,9 @@ public:
 
 private:
     void HelloWorld::determineTouchDirection(Touch *touch);
+    void HelloWorld::setPhysicsWorld(cocos2d::PhysicsWorld *world);
+
+    cocos2d::PhysicsWorld *sceneWorld;
 };
 
 #endif // __HELLOWORLD_SCENE_H__
