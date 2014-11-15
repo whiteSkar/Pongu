@@ -31,6 +31,8 @@ const float DEFAULT_MY_BAR_SPEED = 400.0;
 const float DEFAULT_COMPUTER_BAR_SPEED = 400.0;
 const float DEFAULT_BALL_SPEED = 600;
 
+const PhysicsMaterial PHYSICS_MATERIAL_NO_FRICTION = PhysicsMaterial(1, 1, 0);
+
 class HelloWorld : public Layer
 {
 public:
@@ -64,7 +66,7 @@ public:
 
     GameState gameState;
 
-    Size directorVisibleSize;
+    Size directorSize;
     Point directorOrigin;
 
     Sprite *myBar;

@@ -4,7 +4,7 @@ Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
     auto scene = Scene::createWithPhysics();
-    //scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
     scene->getPhysicsWorld()->setGravity(Vect(0,0));
 
     // 'layer' is an autorelease object
@@ -30,15 +30,21 @@ bool HelloWorld::init()
 
     srand(time(NULL));
     
-    directorVisibleSize = Director::getInstance()->getVisibleSize();
+    directorSize = Director::getInstance()->getVisibleSize();
     directorOrigin = Director::getInstance()->getVisibleOrigin();
 
     const int screenEdgeWidth = 5;
-    auto screenEdgeBody = PhysicsBody::createEdgeBox(directorVisibleSize, PhysicsMaterial(1, 1, 0), screenEdgeWidth);
-    auto screenEdgeNode = Node::create();
-    screenEdgeNode->setPosition(Point(directorVisibleSize.width/2 + directorOrigin.x, directorVisibleSize.height/2 + directorOrigin.y));
-    screenEdgeNode->setPhysicsBody(screenEdgeBody);
-    this->addChild(screenEdgeNode);
+	auto screenLeftEdgeBody = PhysicsBody::createEdgeSegment(Point(0, 0), Point(0, directorSize.height), PHYSICS_MATERIAL_NO_FRICTION, screenEdgeWidth);
+    auto screenLeftEdgeNode = Node::create();
+    screenLeftEdgeNode->setPosition(Point(directorOrigin.x, directorOrigin.y));
+    screenLeftEdgeNode->setPhysicsBody(screenLeftEdgeBody);
+    this->addChild(screenLeftEdgeNode);
+
+	auto screenRightEdgeBody = PhysicsBody::createEdgeSegment(Point(0, 0), Point(0, directorSize.height), PHYSICS_MATERIAL_NO_FRICTION, screenEdgeWidth);
+    auto screenRightEdgeNode = Node::create();
+    screenRightEdgeNode->setPosition(Point(directorOrigin.x + directorSize.width, directorOrigin.y));
+    screenRightEdgeNode->setPhysicsBody(screenRightEdgeBody);
+    this->addChild(screenRightEdgeNode);
 
     gameState = NOT_STARTED;
     touchDirection = NOT_TOUCHED;
@@ -54,7 +60,7 @@ bool HelloWorld::init()
                                            "CloseSelected.png",
                                            CC_CALLBACK_1(HelloWorld::restart, this));
     
-	closeItem->setPosition(Point(directorVisibleSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
+	closeItem->setPosition(Point(directorSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
 
     // create menu, it's an autorelease object
     auto menu = Menu::create(closeItem, NULL);
@@ -70,7 +76,7 @@ bool HelloWorld::init()
     auto label = LabelTTF::create("Pongu", "Arial", 24);
     
     // position the label on the center of the screen
-    label->setPosition(Point(directorVisibleSize.width/2, directorVisibleSize.height - label->getContentSize().height));
+    label->setPosition(Point(directorSize.width/2, directorSize.height - label->getContentSize().height));
 
     this->addChild(label, 1);
 
@@ -83,7 +89,7 @@ bool HelloWorld::init()
 	myBar->setScale(barScale);
     this->initializeMyBarPosition();
 
-    auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
+    auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
     myBarBody->setDynamic(false);
 	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
 	myBarBody->setContactTestBitmask(true);
@@ -96,7 +102,7 @@ bool HelloWorld::init()
 	computerBar->setScale(barScale);
     this->initializeComputerBarPosition();
 
-    auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
+    auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
     computerBarBody->setDynamic(false);
 	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
 	myBarBody->setContactTestBitmask(true);
@@ -109,7 +115,7 @@ bool HelloWorld::init()
     ball->setScale(ballScale);
     this->initializeBallPosition();
 
-    auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PhysicsMaterial(1, 1, 0), Point(0,0));
+    auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
 	ballBody->setCollisionBitmask(BALL_COLLISION_MASK);
 	ballBody->setContactTestBitmask(true);
     ball->setPhysicsBody(ballBody);
@@ -214,8 +220,8 @@ void HelloWorld::updateBarPosition(Sprite *bar, float distanceToMove)
 	bar->setPositionX(bar->getPositionX() + distanceToMove);
 
 	float BarWidthHalf = bar->getBoundingBox().size.width / 2;
-    if (bar->getPositionX() + BarWidthHalf > directorVisibleSize.width)
-        bar->setPositionX(directorVisibleSize.width - BarWidthHalf);
+    if (bar->getPositionX() + BarWidthHalf > directorSize.width)
+        bar->setPositionX(directorSize.width - BarWidthHalf);
     else if(bar->getPositionX() - BarWidthHalf < 0)
         bar->setPositionX(BarWidthHalf);
 }
@@ -246,12 +252,12 @@ void HelloWorld::restart(Ref* pSender)
 
 void HelloWorld::initializeMyBarPosition()
 {
-    myBar->setPosition(Point(directorVisibleSize.width / 2, BAR_VERTICAL_OFFSET));
+    myBar->setPosition(Point(directorSize.width / 2, BAR_VERTICAL_OFFSET));
 }
 
 void HelloWorld::initializeComputerBarPosition()
 {
-    computerBar->setPosition(Point(directorVisibleSize.width / 2, directorVisibleSize.height - BAR_VERTICAL_OFFSET));
+    computerBar->setPosition(Point(directorSize.width / 2, directorSize.height - BAR_VERTICAL_OFFSET));
 }
 
 void HelloWorld::initializeBallPosition()
@@ -271,7 +277,7 @@ void HelloWorld::setPhysicsWorld(cocos2d::PhysicsWorld *world)
 
 void HelloWorld::determineTouchDirection(Touch *touch)
 {
-    if (touch->getLocation().x <= directorVisibleSize.width / 2)
+    if (touch->getLocation().x <= directorSize.width / 2)
         touchDirection = LEFT;
     else
         touchDirection = RIGHT;
