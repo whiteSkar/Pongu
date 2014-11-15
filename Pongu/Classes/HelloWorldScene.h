@@ -24,9 +24,12 @@ typedef std::pair<float, float> UnitVector;
 
 const int BAR_VERTICAL_OFFSET = 50;
 
-const float DEFAULT_MY_BAR_SPEED = 500.0;
-const float DEFAULT_COMPUTER_BAR_SPEED = 300.0;
-const float DEFAULT_BALL_SPEED = 400.0;
+const int BAR_COLLISION_MASK = 2;
+const int BALL_COLLISION_MASK = 1;
+
+const float DEFAULT_MY_BAR_SPEED = 400.0;
+const float DEFAULT_COMPUTER_BAR_SPEED = 400.0;
+const float DEFAULT_BALL_SPEED = 600;
 
 class HelloWorld : public Layer
 {
@@ -51,10 +54,13 @@ public:
     void onTouchMoved(Touch *touch, Event *event);
     void onTouchEnded(Touch *touch, Event *event);
 
-    void HelloWorld::update(float dt);
-    void HelloWorld::moveMyBar(float dt);
+	bool onContactBegin(cocos2d::PhysicsContact &contact);
 
-    void HelloWorld::determineBallDirection();
+    void update(float dt);
+    void updateMyBar(float dt);
+	void updateComputerBar(float dt);
+
+    void determineBallDirection();
 
     GameState gameState;
 
@@ -70,8 +76,11 @@ public:
     TouchDirection touchDirection;
 
 private:
-    void HelloWorld::determineTouchDirection(Touch *touch);
-    void HelloWorld::setPhysicsWorld(cocos2d::PhysicsWorld *world);
+	void setPhysicsWorld(cocos2d::PhysicsWorld *world);
+
+    void determineTouchDirection(Touch *touch);
+	void updateBallVelocity();
+	void updateBarPosition(Sprite *bar, float distanceToMove);
 
     cocos2d::PhysicsWorld *sceneWorld;
 };

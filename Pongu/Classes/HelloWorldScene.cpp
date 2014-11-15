@@ -4,7 +4,7 @@ Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
     auto scene = Scene::createWithPhysics();
-    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    //scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
     scene->getPhysicsWorld()->setGravity(Vect(0,0));
 
     // 'layer' is an autorelease object
@@ -85,6 +85,8 @@ bool HelloWorld::init()
 
     auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
     myBarBody->setDynamic(false);
+	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
+	myBarBody->setContactTestBitmask(true);
     myBar->setPhysicsBody(myBarBody);
 
     this->addChild(myBar, 0);
@@ -96,6 +98,8 @@ bool HelloWorld::init()
 
     auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PhysicsMaterial(1, 1, 0), Point(0,0));
     computerBarBody->setDynamic(false);
+	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
+	myBarBody->setContactTestBitmask(true);
     computerBar->setPhysicsBody(computerBarBody);
 
     this->addChild(computerBar, 0);
@@ -106,6 +110,8 @@ bool HelloWorld::init()
     this->initializeBallPosition();
 
     auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PhysicsMaterial(1, 1, 0), Point(0,0));
+	ballBody->setCollisionBitmask(BALL_COLLISION_MASK);
+	ballBody->setContactTestBitmask(true);
     ball->setPhysicsBody(ballBody);
 
     this->addChild(ball, 0);
@@ -119,19 +125,20 @@ bool HelloWorld::init()
 
     _eventDispatcher->addEventListenerWithSceneGraphPriority(touchListener, this);
 
+	auto contactListener = EventListenerPhysicsContact::create();
+	contactListener->onContactBegin = CC_CALLBACK_1(HelloWorld::onContactBegin, this);
+	this->getEventDispatcher()->addEventListenerWithSceneGraphPriority(contactListener, this);
+
     this->scheduleUpdate();
 
     return true;
 }
 
-// TODO: The direction of the ball should depend on the colliding point with the bar. cocos2dx physics tutorial has a tutorial about collision detection method overriding.
-
 bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 {
     if (gameState == NOT_STARTED)
     {
-        this->determineBallDirection();
-        this->ball->getPhysicsBody()->setVelocity(Vect(DEFAULT_BALL_SPEED * ballDirection.first, DEFAULT_BALL_SPEED * ballDirection.second));
+		this->updateBallVelocity();
     }
 
     gameState = STARTED;
@@ -146,40 +153,71 @@ void HelloWorld::onTouchMoved(cocos2d::Touch *touch, cocos2d::Event *event)
     this->determineTouchDirection(touch);
 }
 
-void HelloWorld::determineTouchDirection(Touch *touch)
-{
-    if (touch->getLocation().x <= directorVisibleSize.width / 2)
-        touchDirection = LEFT;
-    else
-        touchDirection = RIGHT;
-}
-
 void HelloWorld::onTouchEnded(cocos2d::Touch *touch, cocos2d::Event *event)
 {
     touchDirection = NOT_TOUCHED;
+}
+
+bool HelloWorld::onContactBegin(cocos2d::PhysicsContact &contact)
+{
+	PhysicsBody *a = contact.getShapeA()->getBody();
+	PhysicsBody *b = contact.getShapeB()->getBody();
+
+	// TODO: Find out how to properly use collision bit masks
+	if (a->getCollisionBitmask() == 1 && b->getCollisionBitmask() == 2 ||
+		a->getCollisionBitmask() == 2 && b->getCollisionBitmask() == 1)
+	{
+		this->updateBallVelocity();
+	}
+
+	return true;
 }
 
 void HelloWorld::update(float dt)
 {
     if (gameState == STARTED)
     {
-        this->moveMyBar(dt);
+        this->updateMyBar(dt);
+		this->updateComputerBar(dt);
     }
 }
 
-void HelloWorld::moveMyBar(float dt)
+void HelloWorld::updateMyBar(float dt)
 {
     if (touchDirection == NOT_TOUCHED) return;
 
-    float myBarSpeed = DEFAULT_MY_BAR_SPEED * touchDirection * dt;
+    float distanceToMove = DEFAULT_MY_BAR_SPEED * touchDirection * dt;
+	this->updateBarPosition(myBar, distanceToMove);
+}
 
-    myBar->setPositionX(myBar->getPositionX() + myBarSpeed);
+void HelloWorld::updateComputerBar(float dt)
+{
+	float barPosX = computerBar->getPositionX();
+	float ballPosX = ball->getPositionX();
 
-    float myBarWidthHalf = myBar->getBoundingBox().size.width / 2;
-    if (myBar->getPositionX() + myBarWidthHalf > directorVisibleSize.width)
-        myBar->setPositionX(directorVisibleSize.width - myBarWidthHalf);
-    else if(myBar->getPositionX() - myBarWidthHalf < 0)
-        myBar->setPositionX(myBarWidthHalf);
+	float barDirection = 0;
+	if (barPosX < ballPosX)
+	{
+		barDirection = 1;
+	}
+	else if (barPosX > ballPosX)
+	{
+		barDirection = -1;
+	}
+
+	float distanceToMove = DEFAULT_COMPUTER_BAR_SPEED * barDirection * dt;
+	this->updateBarPosition(computerBar, distanceToMove);
+}
+
+void HelloWorld::updateBarPosition(Sprite *bar, float distanceToMove)
+{
+	bar->setPositionX(bar->getPositionX() + distanceToMove);
+
+	float BarWidthHalf = bar->getBoundingBox().size.width / 2;
+    if (bar->getPositionX() + BarWidthHalf > directorVisibleSize.width)
+        bar->setPositionX(directorVisibleSize.width - BarWidthHalf);
+    else if(bar->getPositionX() - BarWidthHalf < 0)
+        bar->setPositionX(BarWidthHalf);
 }
 
 void HelloWorld::determineBallDirection()
@@ -224,7 +262,25 @@ void HelloWorld::initializeBallPosition()
     ball->setPosition(Point(ballRandomXPos, myBar->getPositionY() + myBarSize.height/2 + ballHeight/2));
 }
 
+#pragma region private methods
+
 void HelloWorld::setPhysicsWorld(cocos2d::PhysicsWorld *world)
 {
    this->sceneWorld = world;
 }
+
+void HelloWorld::determineTouchDirection(Touch *touch)
+{
+    if (touch->getLocation().x <= directorVisibleSize.width / 2)
+        touchDirection = LEFT;
+    else
+        touchDirection = RIGHT;
+}
+
+void HelloWorld::updateBallVelocity()
+{
+	this->determineBallDirection();
+	this->ball->getPhysicsBody()->setVelocity(Vect(DEFAULT_BALL_SPEED * ballDirection.first, DEFAULT_BALL_SPEED * ballDirection.second));
+}
+
+#pragma endregion private methods
