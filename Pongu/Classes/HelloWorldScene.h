@@ -27,9 +27,16 @@ const int BAR_VERTICAL_OFFSET = 50;
 const int BAR_COLLISION_MASK = 2;
 const int BALL_COLLISION_MASK = 1;
 
-const float DEFAULT_MY_BAR_SPEED = 400.0;
-const float DEFAULT_COMPUTER_BAR_SPEED = 400.0;
-const float DEFAULT_BALL_SPEED = 600;
+const float DEFAULT_BALL_SPEED = 650;
+const float MAX_BALL_SPEED = 1200;
+const float BALL_SPEED_UP_INTERVAL = (MAX_BALL_SPEED - DEFAULT_BALL_SPEED) / 20;
+
+const float DEFAULT_COMPUTER_BAR_SPEED = 450;
+const float COMPUTER_BAR_SPEED_UP_INTERVAL = 10;
+const float BASE_COMPUTER_BAR_SPEED = DEFAULT_COMPUTER_BAR_SPEED - COMPUTER_BAR_SPEED_UP_INTERVAL;
+const float MAX_COMPUTER_BAR_SPEED = DEFAULT_BALL_SPEED * cos(30 * M_PI / 180);	// 30 degress
+
+const float DEFAULT_MY_BAR_SPEED = MAX_COMPUTER_BAR_SPEED;	// ~563
 
 const PhysicsMaterial PHYSICS_MATERIAL_NO_FRICTION = PhysicsMaterial(1, 1, 0);
 
@@ -39,10 +46,29 @@ public:
     // there's no 'id' in cpp, so we recommend returning the class instance pointer
     static Scene* createScene();
 
+	GameState gameState;
+
+    Size directorSize;
+    Point directorOrigin;
+
+    Sprite *myBar;
+    Sprite *computerBar;
+    Sprite *ball;
+
+	int level;
+	LabelTTF *levelLabel;
+
+    UnitVector ballDirection;
+
+    TouchDirection touchDirection;
+
+	bool isComputerBarMaxSpeed;
+
     // Here's a difference. Method 'init' in cocos2d-x returns bool, instead of returning 'id' in cocos2d-iphone
     virtual bool init();  
     
-    void initialize();
+	void initialize();
+    void reset();
     void restart(Ref* pSender);
 
     void initializeMyBarPosition();
@@ -62,29 +88,26 @@ public:
     void updateMyBar(float dt);
 	void updateComputerBar(float dt);
 
-    void determineBallDirection();
-
-    GameState gameState;
-
-    Size directorSize;
-    Point directorOrigin;
-
-    Sprite *myBar;
-    Sprite *computerBar;
-    Sprite *ball;
-
-    UnitVector ballDirection;
-
-    TouchDirection touchDirection;
+    void determineBallDirection(Sprite *bar);
 
 private:
+    cocos2d::PhysicsWorld *sceneWorld;
+
+	float ballSpeed;
+
 	void setPhysicsWorld(cocos2d::PhysicsWorld *world);
 
     void determineTouchDirection(Touch *touch);
-	void updateBallVelocity();
+	void updateBallVelocity(bool shouldSpeedChange);
 	void updateBarPosition(Sprite *bar, float distanceToMove);
+	void updateLevelLabel();
 
-    cocos2d::PhysicsWorld *sceneWorld;
+	void checkGameEndCondition();
+	void gameEnd(bool isWin);
+	void win();
+	void lose();
+
+	void preloadImages();
 };
 
 #endif // __HELLOWORLD_SCENE_H__

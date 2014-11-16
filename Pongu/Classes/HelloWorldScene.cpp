@@ -1,28 +1,22 @@
 #include "HelloWorldScene.h"
+#include "SimpleAudioEngine.h"
 
 Scene* HelloWorld::createScene()
 {
-    // 'scene' is an autorelease object
     auto scene = Scene::createWithPhysics();
-    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    //scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
     scene->getPhysicsWorld()->setGravity(Vect(0,0));
 
-    // 'layer' is an autorelease object
     auto layer = HelloWorld::create();
     layer->setPhysicsWorld(scene->getPhysicsWorld());
 
-    // add layer as a child to scene
     scene->addChild(layer);
 
-    // return the scene
     return scene;
 }
 
-// on "init" you need to initialize your instance
 bool HelloWorld::init()
 {
-    //////////////////////////////
-    // 1. super init first
     if (!Layer::init())
     {
         return false;
@@ -46,50 +40,29 @@ bool HelloWorld::init()
     screenRightEdgeNode->setPhysicsBody(screenRightEdgeBody);
     this->addChild(screenRightEdgeNode);
 
-    gameState = NOT_STARTED;
-    touchDirection = NOT_TOUCHED;
-    ballDirection = UnitVector(0, 0);
+    this->initialize();
 
-    /////////////////////////////
-    // 2. add a menu item with "X" image, which is clicked to quit the program
-    //    you may modify it.
-
-    // add a "close" icon to exit the progress. it's an autorelease object
     auto closeItem = MenuItemImage::create(
-                                           "CloseNormal.png",
-                                           "CloseSelected.png",
+                                           "images/CloseNormal.png",
+                                           "images/CloseSelected.png",
                                            CC_CALLBACK_1(HelloWorld::restart, this));
     
 	closeItem->setPosition(Point(directorSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
 
-    // create menu, it's an autorelease object
     auto menu = Menu::create(closeItem, NULL);
     menu->setPosition(Point::ZERO);
     this->addChild(menu, 1);
-
-    /////////////////////////////
-    // 3. add your codes below...
-
-    // add a label shows "Hello World"
-    // create and initialize a label
-    
-    auto label = LabelTTF::create("Pongu", "Arial", 24);
-    
-    // position the label on the center of the screen
-    label->setPosition(Point(directorSize.width/2, directorSize.height - label->getContentSize().height));
-
-    this->addChild(label, 1);
 
     // Remove scale when got proper sized sprites
     const float barScale = 0.3;
     const float ballScale = 0.08;
 
     // My bar
-    myBar = Sprite::create("whiteBar.png");
+    myBar = Sprite::create("images/whiteBar.png");
 	myBar->setScale(barScale);
     this->initializeMyBarPosition();
 
-    auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
+    auto myBarBody = PhysicsBody::createBox(myBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point::ZERO);
     myBarBody->setDynamic(false);
 	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
 	myBarBody->setContactTestBitmask(true);
@@ -98,24 +71,24 @@ bool HelloWorld::init()
     this->addChild(myBar, 0);
 
     // Computer bar
-    computerBar = Sprite::create("whiteBar.png");
+    computerBar = Sprite::create("images/whiteBar.png");
 	computerBar->setScale(barScale);
     this->initializeComputerBarPosition();
 
-    auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
+    auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point::ZERO);
     computerBarBody->setDynamic(false);
-	myBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
-	myBarBody->setContactTestBitmask(true);
+	//computerBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
+	//computerBarBody->setContactTestBitmask(true);
     computerBar->setPhysicsBody(computerBarBody);
 
     this->addChild(computerBar, 0);
 
     // The ball
-    ball = Sprite::create("blueBall.png");
+    ball = Sprite::create("images/blueBall.png");
     ball->setScale(ballScale);
     this->initializeBallPosition();
 
-    auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PHYSICS_MATERIAL_NO_FRICTION, Point(0,0));
+    auto ballBody = PhysicsBody::createCircle(ball->getBoundingBox().size.width/2, PHYSICS_MATERIAL_NO_FRICTION, Point::ZERO);
 	ballBody->setCollisionBitmask(BALL_COLLISION_MASK);
 	ballBody->setContactTestBitmask(true);
     ball->setPhysicsBody(ballBody);
@@ -137,6 +110,12 @@ bool HelloWorld::init()
 
     this->scheduleUpdate();
 
+	levelLabel = LabelTTF::create("", "Arial", 24);
+	this->updateLevelLabel();
+	levelLabel->setPosition(Point(directorOrigin.x + directorSize.width - levelLabel->getContentSize().width - 50, directorOrigin.y + directorSize.height - 50));
+    levelLabel->setAnchorPoint(Point::ZERO);
+    this->addChild(levelLabel, 999);
+
     return true;
 }
 
@@ -144,13 +123,20 @@ bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 {
     if (gameState == NOT_STARTED)
     {
-		this->updateBallVelocity();
+		this->updateBallVelocity(true);
+		gameState = STARTED;
     }
 
-    gameState = STARTED;
+	if (gameState == STARTED)
+	{
+		this->determineTouchDirection(touch);
+	}
 
-    this->determineTouchDirection(touch);
-
+	if (gameState == FINISHED)
+	{
+		this->restart(this);
+	}
+    
     return true;
 }
 
@@ -170,11 +156,14 @@ bool HelloWorld::onContactBegin(cocos2d::PhysicsContact &contact)
 	PhysicsBody *b = contact.getShapeB()->getBody();
 
 	// TODO: Find out how to properly use collision bit masks
-	if (a->getCollisionBitmask() == 1 && b->getCollisionBitmask() == 2 ||
-		a->getCollisionBitmask() == 2 && b->getCollisionBitmask() == 1)
+	if ((a->getCollisionBitmask() == 1 && b->getCollisionBitmask() == 2) ||
+		(a->getCollisionBitmask() == 2 && b->getCollisionBitmask() == 1))
 	{
-		this->updateBallVelocity();
+		this->updateBallVelocity(false);
+		CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/ball_bar_collision.wav");
 	}
+
+	// TODO: when collided with edge play ball_edge_collision.wav
 
 	return true;
 }
@@ -185,6 +174,8 @@ void HelloWorld::update(float dt)
     {
         this->updateMyBar(dt);
 		this->updateComputerBar(dt);
+
+		this->checkGameEndCondition();
     }
 }
 
@@ -201,17 +192,31 @@ void HelloWorld::updateComputerBar(float dt)
 	float barPosX = computerBar->getPositionX();
 	float ballPosX = ball->getPositionX();
 
+	int distanceOffset = 10;
 	float barDirection = 0;
-	if (barPosX < ballPosX)
+	if (barPosX < ballPosX - distanceOffset)
 	{
 		barDirection = 1;
 	}
-	else if (barPosX > ballPosX)
+	else if (barPosX > ballPosX + distanceOffset)
 	{
 		barDirection = -1;
 	}
 
-	float distanceToMove = DEFAULT_COMPUTER_BAR_SPEED * barDirection * dt;
+	float barSpeed;
+	if (isComputerBarMaxSpeed)
+	{
+		barSpeed = MAX_COMPUTER_BAR_SPEED;
+	}
+	else
+	{
+		barSpeed = std::min(BASE_COMPUTER_BAR_SPEED + COMPUTER_BAR_SPEED_UP_INTERVAL * level, MAX_COMPUTER_BAR_SPEED);
+		if (barSpeed == MAX_COMPUTER_BAR_SPEED)
+		{
+			isComputerBarMaxSpeed = true;
+		}
+	}
+	float distanceToMove = barSpeed * barDirection * dt;
 	this->updateBarPosition(computerBar, distanceToMove);
 }
 
@@ -226,15 +231,23 @@ void HelloWorld::updateBarPosition(Sprite *bar, float distanceToMove)
         bar->setPositionX(BarWidthHalf);
 }
 
-void HelloWorld::determineBallDirection()
+void HelloWorld::determineBallDirection(Sprite *bar)
 {
-    auto ballPositionVectorFromMyBar = ball->getPosition() - myBar->getPosition();
-    auto angle = ballPositionVectorFromMyBar.getAngle();
+    auto ballPositionVectorFromBar = ball->getPosition() - bar->getPosition();
+    auto angle = ballPositionVectorFromBar.getAngle();
 
     ballDirection = UnitVector(cos(angle), sin(angle));
 }
 
 void HelloWorld::initialize()
+{
+	level = 1;
+	isComputerBarMaxSpeed = false;
+	ballSpeed = DEFAULT_BALL_SPEED;
+	this->reset();
+}
+
+void HelloWorld::reset()
 {
     gameState = NOT_STARTED;
     touchDirection = NOT_TOUCHED;
@@ -243,10 +256,11 @@ void HelloWorld::initialize()
 
 void HelloWorld::restart(Ref* pSender)
 {
-    this->initialize();
+    this->reset();
     this->initializeMyBarPosition();
     this->initializeComputerBarPosition();
     this->initializeBallPosition();
+	this->updateLevelLabel();
     this->ball->getPhysicsBody()->setVelocity(Vect(0, 0));
 }
 
@@ -264,7 +278,7 @@ void HelloWorld::initializeBallPosition()
 {
     auto myBarSize = myBar->getBoundingBox().size;
     auto ballHeight = ball->getBoundingBox().size.height;
-    auto ballRandomXPos = rand() % (int)myBarSize.width + myBar->getPositionX() - myBarSize.width/2;
+    auto ballRandomXPos = (rand() % (int)myBarSize.width/2) + myBar->getPositionX() - myBarSize.width/4;
     ball->setPosition(Point(ballRandomXPos, myBar->getPositionY() + myBarSize.height/2 + ballHeight/2));
 }
 
@@ -283,10 +297,70 @@ void HelloWorld::determineTouchDirection(Touch *touch)
         touchDirection = RIGHT;
 }
 
-void HelloWorld::updateBallVelocity()
+void HelloWorld::updateBallVelocity(bool shouldSpeedChange)
 {
-	this->determineBallDirection();
-	this->ball->getPhysicsBody()->setVelocity(Vect(DEFAULT_BALL_SPEED * ballDirection.first, DEFAULT_BALL_SPEED * ballDirection.second));
+	this->determineBallDirection(myBar);
+	if (isComputerBarMaxSpeed && shouldSpeedChange)
+	{
+		ballSpeed += BALL_SPEED_UP_INTERVAL;
+	}
+
+	this->ball->getPhysicsBody()->setVelocity(Vect(ballSpeed * ballDirection.first, ballSpeed * ballDirection.second));
+}
+
+void HelloWorld::updateLevelLabel()
+{
+	auto levelString = "Level " + std::to_string(level);
+	this->levelLabel->setString(levelString);
+}
+
+void HelloWorld::checkGameEndCondition()
+{
+	auto ballPosY = ball->getPositionY();
+	if (ballPosY < directorOrigin.y)
+	{
+		this->gameEnd(false);
+	}
+	else if (ballPosY > directorOrigin.y + directorSize.height)
+	{
+		this->gameEnd(true);
+	}
+}
+
+void HelloWorld::gameEnd(bool isWin)
+{
+	gameState = FINISHED;
+
+	if (isWin)
+		this->win();
+	else
+		this->lose();
+}
+
+void HelloWorld::win()
+{
+	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/win.wav", false, 1.0F, 0.0F, 0.2F);
+	level++;
+}
+
+void HelloWorld::lose()
+{
+	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/lose.wav", false, 1.0F, 0.0F, 0.2F);
+}
+
+void HelloWorld::preloadImages()
+{
+	// What is the proper way to preload all audio??
+	auto images = std::vector<std::string>();
+	images.push_back("audio/ball_bar_collision.wav");
+	images.push_back("audio/ball_edge_collision.wav");
+	images.push_back("audio/lose.wav");
+	images.push_back("audio/win.wav");
+
+	for (auto &image : images)
+	{
+		CocosDenshion::SimpleAudioEngine::getInstance()->preloadEffect(image.c_str());
+	}
 }
 
 #pragma endregion private methods
