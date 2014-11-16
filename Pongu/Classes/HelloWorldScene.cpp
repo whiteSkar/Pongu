@@ -1,6 +1,14 @@
 #include "HelloWorldScene.h"
 #include "SimpleAudioEngine.h"
 
+// android cannot use std::to_string?? what?????
+template<typename T>
+std::string to_string(const T& t) {
+	std::ostringstream os;
+	os << t;
+	return os.str();
+};
+
 Scene* HelloWorld::createScene()
 {
     auto scene = Scene::createWithPhysics();
@@ -330,7 +338,7 @@ void HelloWorld::updateBallVelocity(bool shouldSpeedChange)
 
 void HelloWorld::updateLevelLabel()
 {
-	auto levelString = "Level " + std::to_string(level);
+	auto levelString = "Level " + to_string(level);
 	this->levelLabel->setString(levelString);
 }
 
