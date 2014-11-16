@@ -29,12 +29,16 @@ bool HelloWorld::init()
 
     const int screenEdgeWidth = 5;
 	auto screenLeftEdgeBody = PhysicsBody::createEdgeSegment(Point(0, 0), Point(0, directorSize.height), PHYSICS_MATERIAL_NO_FRICTION, screenEdgeWidth);
+	screenLeftEdgeBody->setCollisionBitmask(EDGE_COLLISION_MASK);
+	screenLeftEdgeBody->setContactTestBitmask(true);
     auto screenLeftEdgeNode = Node::create();
     screenLeftEdgeNode->setPosition(Point(directorOrigin.x, directorOrigin.y));
     screenLeftEdgeNode->setPhysicsBody(screenLeftEdgeBody);
     this->addChild(screenLeftEdgeNode);
 
 	auto screenRightEdgeBody = PhysicsBody::createEdgeSegment(Point(0, 0), Point(0, directorSize.height), PHYSICS_MATERIAL_NO_FRICTION, screenEdgeWidth);
+	screenRightEdgeBody->setCollisionBitmask(EDGE_COLLISION_MASK);
+	screenRightEdgeBody->setContactTestBitmask(true);
     auto screenRightEdgeNode = Node::create();
     screenRightEdgeNode->setPosition(Point(directorOrigin.x + directorSize.width, directorOrigin.y));
     screenRightEdgeNode->setPhysicsBody(screenRightEdgeBody);
@@ -42,16 +46,17 @@ bool HelloWorld::init()
 
     this->initialize();
 
-    auto closeItem = MenuItemImage::create(
-                                           "images/CloseNormal.png",
-                                           "images/CloseSelected.png",
-                                           CC_CALLBACK_1(HelloWorld::restart, this));
-    
-	closeItem->setPosition(Point(directorSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
+	// Debugging purpose for restarting manually
+ //   auto closeItem = MenuItemImage::create(
+ //                                          "images/CloseNormal.png",
+ //                                          "images/CloseSelected.png",
+ //                                          CC_CALLBACK_1(HelloWorld::restart, this));
+ //   
+	//closeItem->setPosition(Point(directorSize.width - closeItem->getContentSize().width/2, closeItem->getContentSize().height/2));
 
-    auto menu = Menu::create(closeItem, NULL);
-    menu->setPosition(Point::ZERO);
-    this->addChild(menu, 1);
+ //   auto menu = Menu::create(closeItem, NULL);
+ //   menu->setPosition(Point::ZERO);
+ //   this->addChild(menu, 1);
 
     // Remove scale when got proper sized sprites
     const float barScale = 0.3;
@@ -78,7 +83,7 @@ bool HelloWorld::init()
     auto computerBarBody = PhysicsBody::createBox(computerBar->getBoundingBox().size, PHYSICS_MATERIAL_NO_FRICTION, Point::ZERO);
     computerBarBody->setDynamic(false);
 	//computerBarBody->setCollisionBitmask(BAR_COLLISION_MASK);
-	//computerBarBody->setContactTestBitmask(true);
+	computerBarBody->setContactTestBitmask(true);
     computerBar->setPhysicsBody(computerBarBody);
 
     this->addChild(computerBar, 0);
@@ -105,7 +110,7 @@ bool HelloWorld::init()
     _eventDispatcher->addEventListenerWithSceneGraphPriority(touchListener, this);
 
 	auto contactListener = EventListenerPhysicsContact::create();
-	contactListener->onContactBegin = CC_CALLBACK_1(HelloWorld::onContactBegin, this);
+	contactListener->onContactSeperate = CC_CALLBACK_1(HelloWorld::onContactSeperate, this);
 	this->getEventDispatcher()->addEventListenerWithSceneGraphPriority(contactListener, this);
 
     this->scheduleUpdate();
@@ -150,22 +155,35 @@ void HelloWorld::onTouchEnded(cocos2d::Touch *touch, cocos2d::Event *event)
     touchDirection = NOT_TOUCHED;
 }
 
-bool HelloWorld::onContactBegin(cocos2d::PhysicsContact &contact)
+/* 
+ * Using onContactBegin and playing sound effect here makes the collision too far
+ * Using onContactSeperate and playing sound effet here maeks the collision to go too deep
+ * Using onContactPostSolve has the same effect as onContactBegin
+ * What should I do? Am I doing something wrong?
+ * For now, use seperate since it's better to go deep than doesn't even collide
+ */
+ void HelloWorld::onContactSeperate(cocos2d::PhysicsContact &contact)
 {
 	PhysicsBody *a = contact.getShapeA()->getBody();
 	PhysicsBody *b = contact.getShapeB()->getBody();
 
 	// TODO: Find out how to properly use collision bit masks
-	if ((a->getCollisionBitmask() == 1 && b->getCollisionBitmask() == 2) ||
-		(a->getCollisionBitmask() == 2 && b->getCollisionBitmask() == 1))
+	// Computer bar shouldn't pass this condition as updateBallVelocity will update the velocity using 'myBar' position
+	if ((a->getCollisionBitmask() == BALL_COLLISION_MASK && b->getCollisionBitmask() == BAR_COLLISION_MASK) ||
+		(a->getCollisionBitmask() == BAR_COLLISION_MASK && b->getCollisionBitmask() == BALL_COLLISION_MASK))
 	{
 		this->updateBallVelocity(false);
-		CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/ball_bar_collision.wav");
 	}
 
-	// TODO: when collided with edge play ball_edge_collision.wav
-
-	return true;
+	if ((a->getCollisionBitmask() == EDGE_COLLISION_MASK && b->getCollisionBitmask() == BALL_COLLISION_MASK) ||
+		(a->getCollisionBitmask() == BALL_COLLISION_MASK && b->getCollisionBitmask() == EDGE_COLLISION_MASK))
+	{
+		CocosDenshion::SimpleAudioEngine::getInstance()->playEffect(SOUND_COLLISION_BALL_EDGE.c_str());
+	}
+	else
+	{
+		CocosDenshion::SimpleAudioEngine::getInstance()->playEffect(SOUND_COLLISION_BALL_BAR.c_str());
+	}
 }
 
 void HelloWorld::update(float dt)
@@ -244,7 +262,9 @@ void HelloWorld::initialize()
 	level = 1;
 	isComputerBarMaxSpeed = false;
 	ballSpeed = DEFAULT_BALL_SPEED;
+
 	this->reset();
+	this->preloadImages();
 }
 
 void HelloWorld::reset()
@@ -317,11 +337,12 @@ void HelloWorld::updateLevelLabel()
 void HelloWorld::checkGameEndCondition()
 {
 	auto ballPosY = ball->getPositionY();
-	if (ballPosY < directorOrigin.y)
+	auto ballHeightHalf = ball->getBoundingBox().size.height/2;
+	if (ballPosY + ballHeightHalf < directorOrigin.y)
 	{
 		this->gameEnd(false);
 	}
-	else if (ballPosY > directorOrigin.y + directorSize.height)
+	else if (ballPosY - ballHeightHalf > directorOrigin.y + directorSize.height)
 	{
 		this->gameEnd(true);
 	}
@@ -339,23 +360,23 @@ void HelloWorld::gameEnd(bool isWin)
 
 void HelloWorld::win()
 {
-	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/win.wav", false, 1.0F, 0.0F, 0.2F);
+	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect(SOUND_WIN.c_str(), false, 1.0F, 0.0F, 0.2F);	// gain doesn't seem to work??
 	level++;
 }
 
 void HelloWorld::lose()
 {
-	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect("audio/lose.wav", false, 1.0F, 0.0F, 0.2F);
+	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect(SOUND_LOSE.c_str(), false, 1.0F, 0.0F, 0.2F);
 }
 
 void HelloWorld::preloadImages()
 {
 	// What is the proper way to preload all audio??
 	auto images = std::vector<std::string>();
-	images.push_back("audio/ball_bar_collision.wav");
-	images.push_back("audio/ball_edge_collision.wav");
-	images.push_back("audio/lose.wav");
-	images.push_back("audio/win.wav");
+	images.push_back(SOUND_COLLISION_BALL_BAR);
+	images.push_back(SOUND_COLLISION_BALL_EDGE);
+	images.push_back(SOUND_WIN);
+	images.push_back(SOUND_LOSE);
 
 	for (auto &image : images)
 	{

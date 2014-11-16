@@ -24,8 +24,9 @@ typedef std::pair<float, float> UnitVector;
 
 const int BAR_VERTICAL_OFFSET = 50;
 
-const int BAR_COLLISION_MASK = 2;
 const int BALL_COLLISION_MASK = 1;
+const int BAR_COLLISION_MASK = 2;
+const int EDGE_COLLISION_MASK = 3;
 
 const float DEFAULT_BALL_SPEED = 650;
 const float MAX_BALL_SPEED = 1200;
@@ -39,6 +40,11 @@ const float MAX_COMPUTER_BAR_SPEED = DEFAULT_BALL_SPEED * cos(30 * M_PI / 180);	
 const float DEFAULT_MY_BAR_SPEED = MAX_COMPUTER_BAR_SPEED;	// ~563
 
 const PhysicsMaterial PHYSICS_MATERIAL_NO_FRICTION = PhysicsMaterial(1, 1, 0);
+
+const std::string SOUND_COLLISION_BALL_BAR = "audio/ball_bar_collision.wav";
+const std::string SOUND_COLLISION_BALL_EDGE = "audio/ball_edge_collision.wav";
+const std::string SOUND_WIN = "audio/win.wav";
+const std::string SOUND_LOSE = "audio/lose.wav";
 
 class HelloWorld : public Layer
 {
@@ -82,7 +88,7 @@ public:
     void onTouchMoved(Touch *touch, Event *event);
     void onTouchEnded(Touch *touch, Event *event);
 
-	bool onContactBegin(cocos2d::PhysicsContact &contact);
+	void onContactSeperate(cocos2d::PhysicsContact &contact);
 
     void update(float dt);
     void updateMyBar(float dt);
