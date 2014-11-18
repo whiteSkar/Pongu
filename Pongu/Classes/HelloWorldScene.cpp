@@ -345,6 +345,7 @@ void HelloWorld::updateBallVelocity(bool shouldSpeedChange)
 	if (isComputerBarMaxSpeed && shouldSpeedChange)
 	{
 		ballSpeed += BALL_SPEED_UP_INTERVAL;
+        ballSpeed = std::min(ballSpeed, MAX_BALL_SPEED);
 	}
 
 	this->ball->getPhysicsBody()->setVelocity(Vect(ballSpeed * ballDirection.first, ballSpeed * ballDirection.second));
@@ -352,7 +353,16 @@ void HelloWorld::updateBallVelocity(bool shouldSpeedChange)
 
 void HelloWorld::updateLevelLabel()
 {
-	auto levelString = "Level " + to_string(level);
+    std::string levelString = "";
+    if (level >= MAX_GAME_LEVEL)
+    {
+        levelString = "MAX LEVEL";
+    }
+    else
+    {
+        levelString = "Level " + to_string(level);
+    }
+	
 	this->levelLabel->setString(levelString);
 }
 
