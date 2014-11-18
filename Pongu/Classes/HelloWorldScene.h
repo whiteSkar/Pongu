@@ -28,16 +28,16 @@ const int BALL_COLLISION_MASK = 1;
 const int BAR_COLLISION_MASK = 2;
 const int EDGE_COLLISION_MASK = 3;
 
-const float DEFAULT_BALL_SPEED = 650;
-const float MAX_BALL_SPEED = 1200;
-const float BALL_SPEED_UP_INTERVAL = (MAX_BALL_SPEED - DEFAULT_BALL_SPEED) / 20;
+const float DEFAULT_BALL_SPEED = 700;
+const float MAX_BALL_SPEED = 1300;
+const float BALL_SPEED_UP_INTERVAL = (MAX_BALL_SPEED - DEFAULT_BALL_SPEED) / 15;
 
-const float DEFAULT_COMPUTER_BAR_SPEED = 450;
-const float COMPUTER_BAR_SPEED_UP_INTERVAL = 10;
+const float DEFAULT_COMPUTER_BAR_SPEED = 500;
+const float COMPUTER_BAR_SPEED_UP_INTERVAL = 20;
 const float BASE_COMPUTER_BAR_SPEED = DEFAULT_COMPUTER_BAR_SPEED - COMPUTER_BAR_SPEED_UP_INTERVAL;
-const float MAX_COMPUTER_BAR_SPEED = DEFAULT_BALL_SPEED * cos(30 * M_PI / 180);	// 30 degress
+const float MAX_COMPUTER_BAR_SPEED = DEFAULT_BALL_SPEED * cos(25 * M_PI / 180);	// 25 degress
 
-const float DEFAULT_MY_BAR_SPEED = MAX_COMPUTER_BAR_SPEED;	// ~563
+const float DEFAULT_MY_BAR_SPEED = MAX_COMPUTER_BAR_SPEED;	// ~634
 
 const PhysicsMaterial PHYSICS_MATERIAL_NO_FRICTION = PhysicsMaterial(1, 1, 0);
 
@@ -112,6 +112,8 @@ private:
 	void gameEnd(bool isWin);
 	void win();
 	void lose();
+
+    void moveMyBarAndBallToPosX(float posX);
 
 	void preloadImages();
 };

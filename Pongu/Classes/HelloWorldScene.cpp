@@ -67,8 +67,8 @@ bool HelloWorld::init()
  //   this->addChild(menu, 1);
 
     // Remove scale when got proper sized sprites
-    const float barScale = 0.3;
-    const float ballScale = 0.08;
+    const float barScale = 0.6;
+    const float ballScale = 0.17;
 
     // My bar
     myBar = Sprite::create("images/whiteBar.png");
@@ -123,9 +123,10 @@ bool HelloWorld::init()
 
     this->scheduleUpdate();
 
-	levelLabel = LabelTTF::create("", "Arial", 24);
+    // Why does the font name not seem to apply?
+	levelLabel = LabelTTF::create("", "Arial", 36);
 	this->updateLevelLabel();
-	levelLabel->setPosition(Point(directorOrigin.x + directorSize.width - levelLabel->getContentSize().width - 50, directorOrigin.y + directorSize.height - 50));
+    levelLabel->setPosition(Point(directorOrigin.x + directorSize.width - levelLabel->getContentSize().width - 50, directorOrigin.y + directorSize.height - levelLabel->getContentSize().height - 10));
     levelLabel->setAnchorPoint(Point::ZERO);
     this->addChild(levelLabel, 999);
 
@@ -136,18 +137,12 @@ bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 {
     if (gameState == NOT_STARTED)
     {
-		this->updateBallVelocity(true);
-		gameState = STARTED;
+        this->moveMyBarAndBallToPosX(touch->getLocation().x);
     }
 
 	if (gameState == STARTED)
 	{
 		this->determineTouchDirection(touch);
-	}
-
-	if (gameState == FINISHED)
-	{
-		this->restart(this);
 	}
     
     return true;
@@ -155,11 +150,30 @@ bool HelloWorld::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event)
 
 void HelloWorld::onTouchMoved(cocos2d::Touch *touch, cocos2d::Event *event)
 {
-    this->determineTouchDirection(touch);
+    if (gameState == NOT_STARTED)
+    {
+        this->moveMyBarAndBallToPosX(touch->getLocation().x);
+    }
+
+    if (gameState == STARTED)
+	{
+		this->determineTouchDirection(touch);
+	}
 }
 
 void HelloWorld::onTouchEnded(cocos2d::Touch *touch, cocos2d::Event *event)
 {
+    if (gameState == NOT_STARTED)
+    {
+        gameState = STARTED;
+        this->updateBallVelocity(true);
+    }
+
+    if (gameState == FINISHED)
+	{
+		this->restart(this);
+	}
+
     touchDirection = NOT_TOUCHED;
 }
 
@@ -375,6 +389,14 @@ void HelloWorld::win()
 void HelloWorld::lose()
 {
 	CocosDenshion::SimpleAudioEngine::getInstance()->playEffect(SOUND_LOSE.c_str(), false, 1.0F, 0.0F, 0.2F);
+}
+
+void HelloWorld::moveMyBarAndBallToPosX(float posX)
+{
+    float displacementMyBarMoved = posX - myBar->getPositionX();
+
+    myBar->setPositionX(posX);
+    ball->setPositionX(ball->getPositionX() + displacementMyBarMoved);
 }
 
 void HelloWorld::preloadImages()
