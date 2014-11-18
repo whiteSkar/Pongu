@@ -403,10 +403,20 @@ void HelloWorld::lose()
 
 void HelloWorld::moveMyBarAndBallToPosX(float posX)
 {
-    float displacementMyBarMoved = posX - myBar->getPositionX();
+    float posXBeforeMove = myBar->getPositionX();
 
     myBar->setPositionX(posX);
-    ball->setPositionX(ball->getPositionX() + displacementMyBarMoved);
+    if (myBar->getPositionX() + myBar->getBoundingBox().size.width/2 > directorOrigin.x + directorSize.width)
+    {
+        myBar->setPositionX(directorOrigin.x + directorSize.width - myBar->getBoundingBox().size.width/2);
+    }
+    else if (myBar->getPositionX() - myBar->getBoundingBox().size.width/2 < directorOrigin.x)
+    {
+        myBar->setPositionX(directorOrigin.x + myBar->getBoundingBox().size.width/2);
+    }
+    float displacement = myBar->getPositionX() - posXBeforeMove;
+
+    ball->setPositionX(ball->getPositionX() + displacement);
 }
 
 void HelloWorld::preloadImages()
